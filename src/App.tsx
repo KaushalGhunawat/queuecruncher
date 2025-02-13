@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import QueueManagement from "./pages/admin/Queue";
 import QRCode from "./pages/admin/QRCode";
 import Settings from "./pages/admin/Settings";
+import JoinQueue from "./pages/queue/Join";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/admin/queue" element={<AdminLayout><QueueManagement /></AdminLayout>} />
           <Route path="/admin/qr-code" element={<AdminLayout><QRCode /></AdminLayout>} />
           <Route path="/admin/settings" element={<AdminLayout><Settings /></AdminLayout>} />
+          <Route path="/queue/join/:businessId" element={<JoinQueue />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
