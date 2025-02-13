@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueueStore, type QueueEntry } from '@/store/queue.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const statusColors = {
   waiting: 'bg-yellow-500',
@@ -22,42 +24,96 @@ const statusColors = {
 };
 
 const QueueManagement = () => {
-  const { entries, markAsServed, removeFromQueue, updateStatus } = useQueueStore();
+  const { entries, isLoading, error, markAsServed, removeFromQueue, updateStatus, fetchQueueEntries } = useQueueStore();
   const { toast } = useToast();
   const [selectedEntry, setSelectedEntry] = useState<QueueEntry | null>(null);
 
-  const handleServe = (entry: QueueEntry) => {
-    updateStatus(entry.id, 'serving');
-    setSelectedEntry(entry);
-    toast({
-      title: 'Now Serving',
-      description: `Now serving ${entry.name}`,
-    });
-  };
+  useEffect(() => {
+    fetchQueueEntries();
 
-  const handleComplete = (entry: QueueEntry) => {
-    markAsServed(entry.id);
-    setSelectedEntry(null);
-    toast({
-      title: 'Completed',
-      description: `${entry.name} has been served`,
-    });
-  };
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('queue-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'queue_entries'
+        },
+        () => {
+          fetchQueueEntries();
+        }
+      )
+      .subscribe();
 
-  const handleRemove = (entry: QueueEntry) => {
-    removeFromQueue(entry.id);
-    if (selectedEntry?.id === entry.id) {
-      setSelectedEntry(null);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchQueueEntries]);
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error',
+        description: error,
+        variant: 'destructive',
+      });
     }
-    toast({
-      title: 'Removed',
-      description: `${entry.name} has been removed from the queue`,
-    });
+  }, [error, toast]);
+
+  const handleServe = async (entry: QueueEntry) => {
+    try {
+      await updateStatus(entry.id, 'serving');
+      setSelectedEntry(entry);
+      toast({
+        title: 'Now Serving',
+        description: `Now serving ${entry.customer_name}`,
+      });
+    } catch (error) {
+      console.error('Error serving customer:', error);
+    }
+  };
+
+  const handleComplete = async (entry: QueueEntry) => {
+    try {
+      await markAsServed(entry.id);
+      setSelectedEntry(null);
+      toast({
+        title: 'Completed',
+        description: `${entry.customer_name} has been served`,
+      });
+    } catch (error) {
+      console.error('Error completing service:', error);
+    }
+  };
+
+  const handleRemove = async (entry: QueueEntry) => {
+    try {
+      await removeFromQueue(entry.id);
+      if (selectedEntry?.id === entry.id) {
+        setSelectedEntry(null);
+      }
+      toast({
+        title: 'Removed',
+        description: `${entry.customer_name} has been removed from the queue`,
+      });
+    } catch (error) {
+      console.error('Error removing from queue:', error);
+    }
   };
 
   const waitingEntries = entries.filter(
     (entry) => entry.status === 'waiting' || entry.status === 'serving'
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -87,8 +143,8 @@ const QueueManagement = () => {
                     {waitingEntries.map((entry) => (
                       <TableRow key={entry.id}>
                         <TableCell>{entry.position}</TableCell>
-                        <TableCell>{entry.name}</TableCell>
-                        <TableCell>{entry.expectedWaitTime} mins</TableCell>
+                        <TableCell>{entry.customer_name}</TableCell>
+                        <TableCell>{entry.expected_wait_time} mins</TableCell>
                         <TableCell>
                           <Badge className={statusColors[entry.status]}>
                             {entry.status}
@@ -138,10 +194,10 @@ const QueueManagement = () => {
             <CardContent>
               {selectedEntry ? (
                 <div className="space-y-4">
-                  <div className="text-2xl font-bold">{selectedEntry.name}</div>
-                  {selectedEntry.phone && (
+                  <div className="text-2xl font-bold">{selectedEntry.customer_name}</div>
+                  {selectedEntry.phone_number && (
                     <div className="text-sm text-muted-foreground">
-                      Phone: {selectedEntry.phone}
+                      Phone: {selectedEntry.phone_number}
                     </div>
                   )}
                   <Button
