@@ -9,7 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      queue_entries: {
+        Row: {
+          business_id: string
+          customer_name: string
+          expected_wait_time: number
+          id: string
+          joined_at: string
+          phone_number: string | null
+          position: number
+          status: Database["public"]["Enums"]["queue_status"]
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          customer_name: string
+          expected_wait_time: number
+          id?: string
+          joined_at?: string
+          phone_number?: string | null
+          position: number
+          status?: Database["public"]["Enums"]["queue_status"]
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          customer_name?: string
+          expected_wait_time?: number
+          id?: string
+          joined_at?: string
+          phone_number?: string | null
+          position?: number
+          status?: Database["public"]["Enums"]["queue_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +53,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      queue_status: "waiting" | "serving" | "served" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
